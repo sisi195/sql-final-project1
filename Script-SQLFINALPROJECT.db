@@ -1,0 +1,197 @@
+SELECT * FROM Customers c 
+
+
+                                                    ------SQL FINAL PROJECT------
+
+
+----TASK #1:Find the top 5 categories, subcategories, subcategory IDs, product names, and unit prices based on the total unit price.
+
+----INSIGHTS:
+--1.)Knowing the top categories and subcategories based on the total unit price, helps you understand which segments are driving the most revenue.
+--2.)This query is a powerful tool for gaining insights into your product line and making informed decisions based on the data.
+--3.)With the top categories and subcategories, allowing you to focus on promoting and stocking these items.
+--4.)The pricing strategies of top-performing products. This can help in setting competitive prices and maximizing profit margins.
+
+SELECT 
+    sc.CategoryID,
+    sc.SubcategoryName,
+    sc.SubcategoryID,
+    p.UnitPrice
+FROM 
+	Subcategories sc 
+JOIN 
+	Products p 
+ON 
+    p.SubcategoryID = sc.SubcategoryID 
+GROUP BY 
+    sc.SubcategoryName, 
+    sc.SubcategoryID, 
+    p.ProductName, 
+    p.UnitPrice
+ORDER BY 
+    SUM(p.UnitPrice) DESC
+LIMIT 5;
+
+----TASK #2: List all Employees work in the Human Resources Department, putting first and last name into a single string? 
+
+----INSIGHTS:
+--1.)It provides valuable insights into the structure and composition of the Human Resources department.
+--2.)By listing all employees in the Human Resources department and combining their first and last names into a single string, you can easily identify and reference employees in reports and analyses. This can be particularly useful for creating employee directories or organizational charts.
+--3.)Knowing the number of employees in specific departments can help in allocating resources to different departments effectively.
+--4.)By identifying employees in certain departments, you can analyze their engagement and performance levels. This can help in identifying areas for improvement and implementing strategies to enhance employee satisfaction and productivity.
+
+SELECT 
+    e.EmployeeID, 
+    e.FirstName || ' ' || e.LastName AS FullName,
+    d.DepartmentName
+FROM 
+    Employees e 
+LEFT JOIN 
+    Departments d 
+ON 
+    e.DepartmentID = d.DepartmentID 
+WHERE 
+    d.DepartmentName = 'Human Resources';
+
+----TASK #3: Identify the top 10 highest-paying customers, hightest spending orders, order dates, product information, and the total cost of each order item.
+
+---INSIGHTS: 
+--1.)This information can help in tailoring marketing efforts and personalized promotions to target these customers effectively.
+--2.)By knowing the highest-paying customers, you can implement strategies to retain them. This can include follow-up communications, loyalty programs, or special offers to encourage repeat business.
+
+
+SELECT 
+    c.CustomerID,
+    c.FirstName, 
+    c.LastName, 
+    MAX(o.OrderID) AS OrderID,
+    MAX(o.OrderDate) AS OrderDate,
+    MAX(o.TotalAmount) AS TotalAmount,
+    MAX(oi.ProductID) AS ProductID,
+    MAX(p.ProductName) AS ProductName,
+    MAX(oi.Quantity) AS Quantity,
+    MAX(oi.UnitPrice) AS UnitPrice,
+    MAX(oi.Quantity * oi.UnitPrice) AS TotalCost
+FROM 
+    Customers c 
+JOIN 
+    Orders o 
+ON 
+    c.CustomerID = o.CustomerID 
+JOIN 
+    OrderItems oi 
+ON 
+    o.OrderID = oi.OrderID
+JOIN 
+    Products p 
+ON 
+    oi.ProductID = p.ProductID
+GROUP BY 
+    c.CustomerID, 
+    c.FirstName, 
+    c.LastName
+ORDER BY 
+    TotalAmount DESC
+LIMIT 10;
+
+
+---TASK #4: Using a subquery, caluclate the maxium UnitPrice (aliased as Max_price) for each combinations of OrderID, ProductID and Quantity from the OrderItems table. 
+---Calculate the TotalCost by multiplying the Quantity by the UnitPrice
+---Then, categorize the Max_price into 'High', 'Medium', and 'Low' categories.
+
+----INSIGHTS:
+---1.)Determining the optimal pricing strategy for maximizing revenue. 
+---2.)Identify peak sales periods, and make data-driven decisions to boost sales.
+---3.)Identifying which products contribute the most to revenue. 
+---4.)This information is valuable for understanding the overall financial performance of the business.
+
+SELECT 
+    o.OrderID, 
+    o.CustomerID, 
+    oi.ProductID, 
+    p.ProductName,
+    oi.Quantity, 
+    oi.Max_price AS UnitPrice,
+    o.TotalAmount,
+    (oi.Quantity * oi.Max_price) AS TotalCost,
+    oi.PriceCategory
+FROM 
+    Orders o
+JOIN 
+    (
+        SELECT 
+            OrderID, 
+            ProductID, 
+            Quantity, 
+            MAX(UnitPrice) AS Max_price,
+            CASE 
+                WHEN MAX(UnitPrice) > 100 THEN 'High'
+                WHEN MAX(UnitPrice) BETWEEN 50 AND 100 THEN 'Medium'
+                ELSE 'Low'
+            END AS PriceCategory
+        FROM 
+            OrderItems
+        GROUP BY 
+            OrderID, 
+            ProductID, 
+            Quantity
+    ) AS oi
+ON 
+    o.OrderID = oi.OrderID
+JOIN 
+    Products p 
+ON 
+    oi.ProductID = p.ProductID
+ORDER BY 
+    o.TotalAmount DESC
+ 
+
+
+---TASK #5: Find the most recent orders from each customer, along with the ProductID, Quantity, and UnitPrice.
+   
+----INSIGHTS:
+--1.)By focusing on the most recent orders, you can identify customers who have made recent purchases and implement strategies to retain them.
+--2.)Identifying trends in customer behavior and product demand over time.By analyzing the most recent orders, you can spot emerging trends and make data-driven decisions to capitalize on them.
+--3.)By knowing which products are being ordered recently, you can adjust inventory levels to meet current demand and avoid stockouts or overstock situations.
+
+WITH OrderItemsCTE AS (
+    SELECT 
+        OrderID, 
+        ProductID, 
+        Quantity, 
+        MAX(UnitPrice) AS Max_price
+    FROM 
+        OrderItems
+    GROUP BY 
+        OrderID, 
+        ProductID, 
+        Quantity
+),
+RecentOrdersCTE AS (
+    SELECT 
+        o.OrderID, 
+        o.OrderDate, 
+        o.CustomerID, 
+        oi.ProductID, 
+        oi.Quantity, 
+        oi.Max_price AS UnitPrice,
+        ROW_NUMBER() OVER (PARTITION BY o.CustomerID ORDER BY o.OrderDate DESC) AS RowNum
+    FROM 
+        Orders o
+    JOIN 
+        OrderItemsCTE oi 
+    ON 
+        o.OrderID = oi.OrderID
+)
+SELECT 
+    OrderID, 
+    OrderDate, 
+    CustomerID, 
+    ProductID, 
+    Quantity, 
+    UnitPrice
+FROM 
+    RecentOrdersCTE
+WHERE 
+    RowNum = 1
+LIMIT 10;
